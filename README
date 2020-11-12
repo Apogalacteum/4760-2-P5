@@ -1,0 +1,34 @@
+4760 - Project 4
+~~~~~~~~~~~~~~~~~~~~~~~~~
+How to Run:
+"make" to compile and create OS shell
+"make user_proc" to compile and create child process
+"./oss" to run
+"make clean" to remove executables
+~~~~~~~~~~~~~~~~~~~~~~~~~
+Difficulties:
+ - time
+ - researching
+ - incomplete previous projects
+ - scheduling algorithm
+ - general logic for this project
+~~~~~~~~~~~~~~~~~~~~~~~~~
+Notes:
+Log file for version control is in gitlog.txt
+Log file for processes is in log.txt
+
+!! -- INCOMPLETE -- !!
+The project currently does not run to specifications.
+STUCK IN LOOP. NOT SURE WHERE.
+
+I'm nearing the finish line for this project but I just couldn't finish it in time.
+I just have to finish up the scheduling algorithm and implement my user processes
+and it should be fine. 
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!! I APOLOGIZE THAT THIS IS LATE. SOMETHING CAME UP WITH A FRIEND AND I HAD TO DO      !!
+!! SOMETHING IMPORTANT FOR THEM RIGHT AFTER WORK. I JUST TURNED THE COMPUTER ON        !!
+!! AND I SAW THAT I HAD FORGOTTEN TO TURN THIS IN BEFORE I LEFT. I'M SORRY.            !! 
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
