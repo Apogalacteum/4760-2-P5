@@ -1,7 +1,7 @@
 /* Author: Alexander Hughey
  * CS4760 F2020
- * Project 4 - Process Scheduling
- * main driver for project 4
+ * Project 5 - Resource Management
+ * main driver for project 5
  * invoked as "oss"
  */
  

@@ -1,7 +1,7 @@
 /* Author: Alexander Hughey
  * CS4760 F2020
- * Project 4 - Process Scheduling
- * User process for project 4
+ * Project 5 - Resource Management
+ * User process for project 5
  */
  
 #include <stdio.h>
