@@ -20,6 +20,7 @@
 #include <pthread.h>
 #include <signal.h>
 
+//sighandler attempt
 //void sighandler(int);
 
 struct mesg_buffer 
