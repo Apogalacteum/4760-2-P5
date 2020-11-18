@@ -73,13 +73,14 @@ int main(int argc, char* argv[])
   fclose(fp1);
   
   //creating structure for process control block
-  struct pcb
+  struct resource
   {
     int time_cpu;
     int time_tot;
     int time_last;
     int sim_PID;
     int priority;
+    //todo
   };
   
   struct pcb pct[18];
