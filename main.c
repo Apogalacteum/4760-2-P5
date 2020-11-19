@@ -23,6 +23,7 @@
 //sighandler attempt
 //void sighandler(int);
 
+
 struct mesg_buffer 
 { 
   long mesg_type; 
@@ -31,6 +32,11 @@ struct mesg_buffer
 
 int main(int argc, char* argv[])
 {
+
+
+  //create vectors for available, max, requested resources
+  
+  
   //variable declarations for command line options and defaults
   int opt;
   srand(time(0));
