@@ -8,10 +8,19 @@ How to Run:
 ~~~~~~~~~~~~~~~~~~~~~~~~~
 Difficulties:
  - time
- - 
+ - semaphores
+ - implementation of banker's algorithm
+ -
 ~~~~~~~~~~~~~~~~~~~~~~~~~
 Notes:
 Log file for version control is in gitlog.txt
-Log file for processes is in log.txt
+Log file for processes is in logfile.txt
 
 !! -- INCOMPLETE -- !!
+The program does not compile.
+
+I'm sorry this is late. I didn't want to turn it in if it couldn't even compile
+but I'm just starting to get frustrated by the amount of bugs I have in this code.
+I think I will need to start from scratch in the next project, rather than
+attempt to modify the previous project. I just get way too lost in my unorganized code.
+

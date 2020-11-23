@@ -17,6 +17,37 @@
 #include <sys/msg.h> 
 #include <pthread.h>
 #include <signal.h>
+#include <semaphore.h>
+
+//semaphores
+static int shared = 0;
+static sem_t sharedsem;
+
+int initshared(int val)
+{
+  if (sem_init(&sharedsem, 0, 1) == -1)
+    return -1;
+  shared = val;
+  return 0;
+}
+
+int getshared(int *sval)
+{
+  while(sem_wait(&sharedsem) == -1)
+    if(errno != EINTR)
+      return -1;
+  *sval = shared;
+  return sem_post(&sharedsem);
+}
+
+int incshared()
+{
+  while(sem_wait(&sharedsem) == -1)
+    if(errno != EINTR)
+      return -1;
+  shared++;
+  return sem_post(&sharedsem);
+}
 
 //void sighandler(int);
 
@@ -87,24 +118,6 @@ int main(int argc, char *argv[])
   printf("2. shm nan in user = %d\n", *shm_nan);
   printf("2. shm PID in user = %d\n", *shm_PID);*/
   
-  //detaching shared memory segments
-  if((shmdt(shm_sec)) == -1)
-  {
-    perror("failed to detach shared memory for clock seconds");
-    return -1;
-  }//end of if
-  
-  if((shmdt(shm_nan)) == -1)
-  {
-    perror("failed to detach shared memory for clock nanoseconds");
-    return -1;
-  }//end of if
-  
-  if((shmdt(shm_PID)) == -1)
-  {
-    perror("failed to detach shared memory for shmPID");
-    return -1;
-  }//end of if
   
   //////////////////////////////////////////////////////////////////////
   //////////////////////////////////////////////////////////////////////
@@ -137,28 +150,28 @@ int main(int argc, char *argv[])
         loopflag = 1;
       }
     }
-    
-    //detaching shared memory segments
-    if((shmdt(shm_sec)) == -1)
-    {
-      perror("failed to detach shared memory for clock seconds");
-      return -1;
-    }//end of if
-    
-    if((shmdt(shm_nan)) == -1)
-    {
-      perror("failed to detach shared memory for clock nanoseconds");
-      return -1;
-    }//end of if
-    
-    if((shmdt(shm_PID)) == -1)
-    {
-      perror("failed to detach shared memory for shmPID");
-      return -1;
-    }//end of if
-    
   }
 
+  //detaching shared memory segments
+  if((shmdt(shm_sec)) == -1)
+  {
+    perror("failed to detach shared memory for clock seconds");
+    return -1;
+  }//end of if
+  
+  if((shmdt(shm_nan)) == -1)
+  {
+    perror("failed to detach shared memory for clock nanoseconds");
+    return -1;
+  }//end of if
+  
+  if((shmdt(shm_PID)) == -1)
+  {
+    perror("failed to detach shared memory for shmPID");
+    return -1;
+  }//end of if
+  
+  
   return 0;
 }
 

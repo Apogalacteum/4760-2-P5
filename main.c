@@ -19,10 +19,104 @@
 #include <sys/wait.h>
 #include <pthread.h>
 #include <signal.h>
+#include <semaphore.h>
+
+#define true 1
+#define false 0
+
+//structures for deadlock avoidance
+int available[10], allocation[10][10], max[10][10], need[10][10], work[10];
+int finish[10], maxres[10], safe[10], req[10], m, n;
+
+//semaphores
+static int shared = 0;
+static sem_t sharedsem;
+
+int requests_granted, avg_time_blocked;
+
+int initshared(int val)
+{
+  if (sem_init(&sharedsem, 0, 1) == -1)
+    return -1;
+  shared = val;
+  return 0;
+}
+
+int getshared(int *sval)
+{
+  while(sem_wait(&sharedsem) == -1)
+    if(errno != EINTR)
+      return -1;
+  *sval = shared;
+  return sem_post(&sharedsem);
+}
+
+int incshared()
+{
+  while(sem_wait(&sharedsem) == -1)
+    if(errno != EINTR)
+      return -1;
+  shared++;
+  return sem_post(&sharedsem);
+}
+
+//functions for banker's algorithm
+int find()
+{
+	int i, j;
+	for (i = 0; i < n; i++)
+	{
+		if (finish[i] == false)
+		{
+			for (j = 0; j < m; j++)
+				if (need[i][j] > work[j]) break;
+			if (j == m)
+			{
+				finish[i] = true;
+				return i;
+			}
+		}
+	}
+	return -1;
+}
+
+int issafe()
+{
+	int i = 0, j, k = 0, cnt = n;
+	for (j = 0; j < m; j++)
+		work[j] = available[j];
+	for (j = 0; j < m; j++)
+		finish[i] = false;
+	while (cnt > 0)
+	{
+		for (i = 0; i < n; i++)
+		{
+			i = find();
+			if (i == -1)
+			{
+				printf("\nThe system is in unsafe state");
+				return 0;
+			}
+			for (j = 0; j < m; j++)
+				work[j] += allocation[i][j];
+			safe[k++] = i;
+			cnt--;
+		}
+	}
+	if (finish[i - 1] == false)
+	{
+		printf("\nThe system is in unsafe state");
+		return 0;
+	}
+	printf("\nThe system is in safe state, safe sequence: ");
+	for (i = 0; i < n; i++)
+		printf("P%d, ", safe[i]);
+	return 0;
+}
+
 
 //sighandler attempt
 //void sighandler(int);
-
 
 struct mesg_buffer 
 { 
@@ -32,13 +126,28 @@ struct mesg_buffer
 
 int main(int argc, char* argv[])
 {
-
-
-  //create vectors for available, max, requested resources
+  int i, j, sum;
+	char ch;
+  n = 5;
+  m = 3;
   
+  int allocation[5][3] = { { 0, 2, 1 }, // P0    
+                      { 1, 1, 1 }, // P1 
+                      { 2, 1, 2 }, // P2 
+                      { 2, 1, 1 }, // P3 
+                      { 1, 1, 2 } }; // P4 
+
+  int max[5][3] = { { 6, 4, 2 }, // P0 
+                    { 4, 4, 4 }, // P1 
+                    { 9, 2, 2 }, // P2 
+                    { 1, 2, 2 }, // P3 
+                    { 5, 3, 3 } }; // P4 
+
+  int available[3] = { 3, 3, 4 };
   
   //variable declarations for command line options and defaults
   int opt;
+  int flag_verbose = 0;
   srand(time(0));
   const int maxTimeBetweenNewProcsSecs = 2;
   const int maxTimeBetweenNewProcsNS = 1000000;
@@ -46,14 +155,19 @@ int main(int argc, char* argv[])
   char * log_file = "logfile.txt";
   
   //////////BEGIN COMMAND LINE PARSING//////////
-  //options are -h, -c x, -l file, -t time
-  while((opt = getopt(argc, argv, ":hc:l:t:")) != -1)
+  //options are -h, -v
+  while((opt = getopt(argc, argv, ":hv")) != -1)
   {
     switch(opt)
     {
       case 'h':
         printf("Usage:\n");
-        printf("./oss\n");
+        printf("./oss [options]\n\n");
+        printf("Options:\n\t-h\thelp\n\t-v\tverbose log\n\n");
+        break;
+      case 'v':
+        printf("Verbose Output\n");
+        flag_verbose = 1;
         break;
       case'?':
         printf("unknown option\n");
@@ -81,15 +195,13 @@ int main(int argc, char* argv[])
   //creating structure for process control block
   struct resource
   {
-    int time_cpu;
-    int time_tot;
-    int time_last;
+    int request;
+    int alloc;
+    int release;
     int sim_PID;
-    int priority;
-    //todo
   };
   
-  struct pcb pct[18];
+  struct resource pct[18];
   
   // create shared memory for clock.
   // seconds, nanosecond, pcb
@@ -106,11 +218,11 @@ int main(int argc, char* argv[])
   int size_table;
   
   //inserting values
-  sec_key = 909091;
-  ns_key = 808081;
-  pct_key = 707071;
+  sec_key = 909092;
+  ns_key = 808082;
+  pct_key = 707072;
   size_clock = sizeof(int);
-  size_table = (sizeof(struct pcb));
+  size_table = (sizeof(struct resource));
   printf("size_table = %d\n", size_table);
   
   //creating shared memory for seconds, nanosecond, process control table
@@ -152,7 +264,7 @@ int main(int argc, char* argv[])
   //////////////////////////////////////////////////////////////////////
   int *shm_sec;
   int *shm_nan;
-  struct pcb *shm_pct;
+  struct resource *shm_pct;
   
   if((shm_sec = shmat( sec_shmid, NULL, 0)) == (int *) -1)
   {
@@ -187,8 +299,8 @@ int main(int argc, char* argv[])
   //////////logical loop begin//////////
   //creating and initalizing bit vector
   int proc_bit[18];
-  int i = 0;
-  for(i = 0; i < 18; i++) proc_bit[i] = 0;
+  int it = 0;
+  for(it = 0; it < 18; it++) proc_bit[it] = 0;
   //array of character arrays used as an argument for exec
   /*debug
   printf("sending values\nsec_shmid:%d\nns_shmid:%d\n", sec_shmid, ns_shmid);
@@ -203,6 +315,7 @@ int main(int argc, char* argv[])
   //other variables for loop
   int flag_end = 0;
   int process_total = 0;
+  int process_current = 0;
   int randNS = (rand()%maxTimeBetweenNewProcsNS);
   int randS = (rand()%maxTimeBetweenNewProcsSecs);
   int time_since_last = 0;
@@ -214,11 +327,6 @@ int main(int argc, char* argv[])
   struct mesg_buffer message;
   msg_key = ftok("alexmsg", 65); 
   msg_id = msgget(msg_key, 0666 | IPC_CREAT); 
-  //creating priority queues
-  //1 is highest priority. 3 is lowest.
-  struct pcb prio1[18];
-  struct pcb prio2[18];
-  struct pcb prio3[18];
   
   
   while (flag_end == 0)
@@ -230,23 +338,15 @@ int main(int argc, char* argv[])
       {
         if(proc_bit[i] == 0) pid_loc = i;
       }
-      if(pid_loc != -1)
+      if(pid_loc != -1 && process_current <= 18)
       {
         proc_bit[pid_loc] = 1;
-        //writing to log file
-        FILE *fp1; 
-        fp1 = fopen(log_file, "a");
-        fprintf(fp1, "OSS: Generating process with PID %d", pid_loc);
-        fprintf(fp1, " and putting it in queue 1 ");
-        fprintf(fp1, "at time %d:%d\n", *shm_sec, *shm_nan);
-        fclose(fp1);
         //creating pcb
-        struct pcb temp;
-        temp.time_cpu = 0;
-        temp.time_tot = 0;
-        temp.time_last = 0;
+        struct resource temp;
+        temp.request = 2;
+        temp.alloc = 8;
+        temp.release = 2;
         temp.sim_PID = pid_loc;
-        temp.priority = 1;
         
         //enter critical section
         shm_pct[pid_loc] = temp;
@@ -254,6 +354,7 @@ int main(int argc, char* argv[])
         
         time_since_last = 0;
         process_total++;
+        process_current++;
         
         randNS = (rand()%maxTimeBetweenNewProcsNS);
         randS = (rand()%maxTimeBetweenNewProcsSecs);
@@ -261,6 +362,7 @@ int main(int argc, char* argv[])
         if(fork() == 0)//child enter
         { 
           execvp(args[0],args);
+          process_current--;
           return 0;
         }//end of if
       }
@@ -272,67 +374,6 @@ int main(int argc, char* argv[])
     {
       *shm_nan = *shm_nan%nano;
       *shm_sec = *shm_sec+1;
-    }
-    int flag_sched = 0;
-    for(i = 0; i < 18; i++)
-    {
-      if(prio1[i].sim_PID != -1)
-      {
-        flag_sched = 1;
-        message.mesg_type = prio1[i].sim_PID;  
-        message.mesg_text = "800000";
-        msgsnd(msg_id, &message, sizeof(message), 0);
-        //writing to log file
-        FILE *fp1; 
-        fp1 = fopen(log_file, "a");
-        fprintf(fp1, "OSS: Dispatching process with PID %d", prio1[i].sim_PID);
-        fprintf(fp1, " from queue 1 ");
-        fprintf(fp1, "at time %d:%d\n", *shm_sec, *shm_nan);
-        fclose(fp1);
-      }
-      if (flag_sched == 1) break;
-    }
-    if (flag_sched == 0)
-    {
-      for(i = 0; i < 18; i++)
-      {
-        if(prio2[i].sim_PID != -1)
-        {
-          flag_sched = 1;
-          message.mesg_type = prio2[i].sim_PID;  
-          message.mesg_text = "800000";
-          msgsnd(msg_id, &message, sizeof(message), 0);
-          //writing to log file
-          FILE *fp1; 
-          fp1 = fopen(log_file, "a");
-          fprintf(fp1, "OSS: Dispatching process with PID %d", prio2[i].sim_PID);
-          fprintf(fp1, " from queue 2 ");
-          fprintf(fp1, "at time %d:%d\n", *shm_sec, *shm_nan);
-          fclose(fp1);
-        }
-        if (flag_sched == 1) break;
-      }
-    }
-    if (flag_sched == 0)
-    {
-      for(i = 0; i < 18; i++)
-      {
-        if(prio3[i].sim_PID != -1)
-        {
-          flag_sched = 1;
-          message.mesg_type = prio3[i].sim_PID;  
-          message.mesg_text = "800000";
-          msgsnd(msg_id, &message, sizeof(message), 0);
-          //writing to log file
-          FILE *fp1; 
-          fp1 = fopen(log_file, "a");
-          fprintf(fp1, "OSS: Dispatching process with PID %d", prio3[i].sim_PID);
-          fprintf(fp1, " from queue 3 ");
-          fprintf(fp1, "at time %d:%d\n", *shm_sec, *shm_nan);
-          fclose(fp1);
-        }
-        if (flag_sched == 1) break;
-      }
     }
     
     //flag_end = 1;
@@ -346,9 +387,37 @@ int main(int argc, char* argv[])
       *shm_sec = *shm_sec+1;
     }
     //leave critical section
+    
+    //check claims
+    printf("\nThe Matrix is:\n");
+  	for (i = 0; i < n; i++)
+  	{
+  		for (j = 0; j < m; j++)
+  			printf("%d ", need[i][j]);
+  		printf("\n");
+  	}
+  	for (j = 0; j < m; j++)
+  	{
+  		sum = 0;
+  		for (i = 0; i < n; i++)
+  			sum += allocation[i][j];
+  		available[j] -= sum;
+  	}
+  	issafe();
+ 	
   }
   wait(NULL);
   //////////logical loop end//////////
+  
+  /*
+  //writing to log file
+        FILE *fp1; 
+        fp1 = fopen(log_file, "a");
+        fprintf(fp1, "OSS: Generating process with PID %d", pid_loc);
+        fprintf(fp1, " and putting it in queue 1 ");
+        fprintf(fp1, "at time %d:%d\n", *shm_sec, *shm_nan);
+        fclose(fp1);
+  */
   
   //detaching shared memory segments
   if((shmdt(shm_sec)) == -1)
